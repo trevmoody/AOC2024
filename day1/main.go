@@ -39,11 +39,7 @@ func readInput() ([]int, []int) {
 
 func part2(list1 []int, list2 []int) int {
 
-	// count frequency
-	counts := make(map[int]int)
-	for _, num := range list2 {
-		counts[num]++
-	}
+	counts := countFrequency(list2)
 
 	similarityScore := 0
 	for _, num := range list1 {
@@ -53,15 +49,22 @@ func part2(list1 []int, list2 []int) int {
 	return similarityScore
 }
 
+func countFrequency(list []int) map[int]int {
+	counts := make(map[int]int)
+	for _, num := range list {
+		counts[num]++
+	}
+	return counts
+}
+
 func part1(list1 []int, list2 []int) int {
 
 	slices.Sort(list1)
 	slices.Sort(list2)
 
 	sumOfDiff := 0
-
-	for i := 0; i < len(list1); i++ {
-		sumOfDiff += int(math.Abs(float64(list1[i] - list2[i])))
+	for i, value1 := range list1 {
+		sumOfDiff += int(math.Abs(float64(value1 - list2[i])))
 	}
 
 	return sumOfDiff
@@ -69,9 +72,6 @@ func part1(list1 []int, list2 []int) int {
 func main() {
 	list1, list2 := readInput()
 
-	result1 := part1(list1, list2)
-	fmt.Printf("Part 1 Total %d\n", result1)
-
-	result2 := part2(list1, list2)
-	fmt.Printf("Part 2 Score %d\n", result2)
+	fmt.Printf("Part 1 Total %d\n", part1(list1, list2))
+	fmt.Printf("Part 2 Score %d\n", part2(list1, list2))
 }
