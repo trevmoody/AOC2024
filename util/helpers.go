@@ -8,6 +8,18 @@ import (
 	"strings"
 )
 
+func ConvertToCharSlices(strings []string) [][]string {
+	var charSlices [][]string
+	for _, str := range strings {
+		var chars []string
+		for _, ch := range str {
+			chars = append(chars, string(ch))
+		}
+		charSlices = append(charSlices, chars)
+	}
+	return charSlices
+}
+
 func GetFileAsLines(fileName string) *[]string {
 
 	currentDir, _ := os.Getwd()
