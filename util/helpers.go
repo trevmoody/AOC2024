@@ -79,6 +79,16 @@ func StringsToInts(line string) []int {
 	return retList
 }
 
+func StringsToIntsCSV(line string) []int {
+	fields := strings.Split(line, ",")
+	var retList []int
+	for _, f := range fields {
+		i, _ := strconv.Atoi(strings.TrimSpace(f))
+		retList = append(retList, i)
+	}
+	return retList
+}
+
 func RemoveAtIndex(slice []int, index int) []int {
 	if index < 0 || index >= len(slice) {
 		return slice
@@ -88,6 +98,23 @@ func RemoveAtIndex(slice []int, index int) []int {
 	copy(copied, slice)
 	newSlice := append(copied[:index], copied[index+1:]...)
 	return newSlice
+}
+
+func Split(lines []string, splitter string) ([]string, []string) {
+	var slice1, slice2 []string
+	var split bool
+	for _, str := range lines {
+		if str == splitter {
+			split = true
+			continue
+		}
+		if split {
+			slice2 = append(slice2, str)
+		} else {
+			slice1 = append(slice1, str)
+		}
+	}
+	return slice1, slice2
 }
 
 //
