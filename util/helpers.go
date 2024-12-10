@@ -20,6 +20,19 @@ func ConvertToCharSlices(strings []string) [][]string {
 	return charSlices
 }
 
+func ConvertToIntSlices(strings []string) [][]int {
+	var intSlices [][]int
+	for _, str := range strings {
+		var intSlice []int
+		for _, ch := range str {
+			chAsInt, _ := strconv.Atoi(string(ch))
+			intSlice = append(intSlice, chAsInt)
+		}
+		intSlices = append(intSlices, intSlice)
+	}
+	return intSlices
+}
+
 func GetFileAsLines(fileName string) *[]string {
 
 	currentDir, _ := os.Getwd()
