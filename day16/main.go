@@ -2,9 +2,9 @@ package main
 
 import (
 	"AOC2024/util"
+	"container/heap"
 	"fmt"
 	"math"
-	"sort"
 	_ "unicode/utf8"
 )
 
@@ -15,10 +15,27 @@ func main() {
 	//fmt.Printf("\nPart 1 cost %d\n", part1(*util.GetFileAsLines("day16/input.txt")))
 }
 
+type Direction int
+
+const (
+	N Direction = iota
+	S
+	E
+	W
+)
+
+type Turn int
+
+const (
+	FORWARD Turn = iota
+	LEFT
+	RIGHT
+)
+
 type Point struct {
 	X         int
 	Y         int
-	direction string
+	direction Direction
 }
 
 type PointData struct {
@@ -26,17 +43,69 @@ type PointData struct {
 	distanceFromStart int
 }
 
-func part1(strings []string) int {
+type Item struct {
+	value    PointData // The value of the item; arbitrary.
+	priority int       // The priority of the item in the queue.
+	index    int       // The index of the item in the heap.
+}
 
+// A PriorityQueue implements heap.Interface and holds Items.
+type PriorityQueue []*Item
+
+func (pq PriorityQueue) Len() int { return len(pq) }
+
+func (pq PriorityQueue) Less(i, j int) bool {
+	// We want Pop to give us the lowest, not highest, priority so we use less than here.
+	return pq[i].priority < pq[j].priority
+}
+
+func (pq PriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
+}
+
+func (pq *PriorityQueue) Push(x interface{}) {
+	n := len(*pq)
+	item := x.(*Item)
+	item.index = n
+	*pq = append(*pq, item)
+}
+
+func (pq *PriorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil  // avoid memory leak
+	item.index = -1 // for safety
+	*pq = old[0 : n-1]
+	return item
+}
+
+func (pq *PriorityQueue) update(item *Item, value PointData, priority int) {
+	item.value = value
+	item.priority = priority
+	heap.Fix(pq, item.index)
+}
+
+func part1(strings []string) int {
 	points, startPoint, endPoint1, endpoint2 := parse(strings)
 	fmt.Printf("Start point %v\n", startPoint)
 	fmt.Printf("End point %v\n", endPoint1)
 
 	sptSet := make(map[Point]bool)
+	pq := make(PriorityQueue, 0)
+	heap.Init(&pq)
+
+	for _, pointData := range points {
+		heap.Push(&pq, &Item{
+			value:    pointData,
+			priority: pointData.distanceFromStart,
+		})
+	}
 
 	for len(sptSet) != len(points) {
-		processClosestPoint(points, sptSet, endPoint1)
-
+		processClosestPoint(points, sptSet, &pq)
 	}
 
 	if points[endPoint1].distanceFromStart < points[endpoint2].distanceFromStart {
@@ -44,63 +113,31 @@ func part1(strings []string) int {
 	} else {
 		return points[endpoint2].distanceFromStart
 	}
-
 }
 
-func processClosestPoint(allPoints map[Point]PointData, sptSet map[Point]bool, endPoint Point) {
-
-	closestPointData := findClosestPoint(allPoints, sptSet)
-	//fmt.Printf("\nClosest point %v\n", closestPointData)
-
+func processClosestPoint(allPoints map[Point]PointData, sptSet map[Point]bool, pq *PriorityQueue) {
+	closestPointData := heap.Pop(pq).(*Item).value
 	sptSet[closestPointData.point] = true
-	checkNeighboursAndUpdateDistance(allPoints, closestPointData, endPoint)
-
+	checkNeighboursAndUpdateDistance(allPoints, closestPointData, pq)
 }
 
-var directionsToTry = []string{"FORWARD", "Left", "Right"}
+var directionsToTry = []Turn{FORWARD, LEFT, RIGHT}
 
-func checkNeighboursAndUpdateDistance(points map[Point]PointData, currentPoint PointData, endPoint Point) {
+func checkNeighboursAndUpdateDistance(points map[Point]PointData, currentPoint PointData, pq *PriorityQueue) {
 	for _, turn := range directionsToTry {
 		nextPoint, distance := getNextPoint(currentPoint, turn)
-		//is this a valid point
 		_, ok := points[nextPoint]
 		if ok {
-			if points[nextPoint].point == endPoint {
-				fmt.Printf("At Endpoint")
-			}
 			newDistance := currentPoint.distanceFromStart + distance
 			if newDistance <= points[nextPoint].distanceFromStart {
-				//fmt.Printf("Distance for point : %v : %d\n", nextPoint, newDistance)
 				points[nextPoint] = PointData{nextPoint, newDistance}
+				heap.Push(pq, &Item{
+					value:    points[nextPoint],
+					priority: newDistance,
+				})
 			}
 		}
-
 	}
-
-}
-
-func findClosestPoint(points map[Point]PointData, sptSet map[Point]bool) PointData {
-	var values []PointData
-	for _, value := range points {
-		_, ok := sptSet[value.point]
-		if ok {
-			continue
-		}
-
-		values = append(values, value)
-	}
-
-	sort.Slice(values, func(i, j int) bool {
-		if values[i].distanceFromStart == 0 {
-			return true
-		}
-		if values[j].distanceFromStart == 0 {
-			return false
-		}
-		return values[i].distanceFromStart < values[j].distanceFromStart
-	})
-
-	return points[values[0].point]
 }
 
 func parse(strings []string) (map[Point]PointData, Point, Point, Point) {
@@ -115,19 +152,19 @@ func parse(strings []string) (map[Point]PointData, Point, Point, Point) {
 
 			switch string(char) {
 			case "S":
-				startPoint = Point{j, i, "E"}
+				startPoint = Point{j, i, E}
 				points[startPoint] = PointData{startPoint, 0}
-				points[Point{j, i, "N"}] = PointData{Point{j, i, "N"}, math.MaxInt64}
+				points[Point{j, i, N}] = PointData{Point{j, i, N}, math.MaxInt64}
 			case "E":
-				endPoint1 = Point{j, i, "N"}
-				endPoint2 = Point{j, i, "E"}
+				endPoint1 = Point{j, i, N}
+				endPoint2 = Point{j, i, E}
 				points[endPoint1] = PointData{endPoint1, math.MaxInt64}
 				points[endPoint2] = PointData{endPoint2, math.MaxInt64}
 			case ".":
-				point1 := Point{j, i, "N"}
-				point2 := Point{j, i, "S"}
-				point3 := Point{j, i, "E"}
-				point4 := Point{j, i, "W"}
+				point1 := Point{j, i, N}
+				point2 := Point{j, i, S}
+				point3 := Point{j, i, E}
+				point4 := Point{j, i, W}
 				points[point1] = PointData{point1, math.MaxInt64}
 				points[point2] = PointData{point2, math.MaxInt64}
 				points[point3] = PointData{point3, math.MaxInt64}
@@ -139,40 +176,37 @@ func parse(strings []string) (map[Point]PointData, Point, Point, Point) {
 	return points, startPoint, endPoint1, endPoint2
 }
 
-func getNextPoint(startPoint PointData, turn string) (Point, int) {
-	var nextPoint Point
-	currentDirection := startPoint.point.direction
+func getNextPoint(startPoint PointData, turn Turn) (Point, int) {
 	switch {
-	case currentDirection == "N" && turn == "FORWARD":
-		return Point{startPoint.point.X, startPoint.point.Y - 1, currentDirection}, 1
-	case currentDirection == "N" && turn == "Left":
-		return Point{startPoint.point.X, startPoint.point.Y, "W"}, 1000
-	case currentDirection == "N" && turn == "Right":
-		return Point{startPoint.point.X, startPoint.point.Y, "E"}, 1000
+	case startPoint.point.direction == N && turn == FORWARD:
+		return Point{startPoint.point.X, startPoint.point.Y - 1, startPoint.point.direction}, 1
+	case startPoint.point.direction == N && turn == LEFT:
+		return Point{startPoint.point.X, startPoint.point.Y, W}, 1000
+	case startPoint.point.direction == N && turn == RIGHT:
+		return Point{startPoint.point.X, startPoint.point.Y, E}, 1000
 
-	case currentDirection == "S" && turn == "FORWARD":
-		return Point{startPoint.point.X, startPoint.point.Y + 1, currentDirection}, 1
-	case currentDirection == "S" && turn == "Left":
-		return Point{startPoint.point.X, startPoint.point.Y, "E"}, 1000
-	case currentDirection == "S" && turn == "Right":
-		return Point{startPoint.point.X, startPoint.point.Y, "W"}, 1000
+	case startPoint.point.direction == S && turn == FORWARD:
+		return Point{startPoint.point.X, startPoint.point.Y + 1, startPoint.point.direction}, 1
+	case startPoint.point.direction == S && turn == LEFT:
+		return Point{startPoint.point.X, startPoint.point.Y, E}, 1000
+	case startPoint.point.direction == S && turn == RIGHT:
+		return Point{startPoint.point.X, startPoint.point.Y, W}, 1000
 
-	case currentDirection == "E" && turn == "FORWARD":
-		return Point{startPoint.point.X + 1, startPoint.point.Y, currentDirection}, 1
-	case currentDirection == "E" && turn == "Left":
-		return Point{startPoint.point.X, startPoint.point.Y, "N"}, 1000
-	case currentDirection == "E" && turn == "Right":
-		return Point{startPoint.point.X, startPoint.point.Y, "S"}, 1000
+	case startPoint.point.direction == E && turn == FORWARD:
+		return Point{startPoint.point.X + 1, startPoint.point.Y, startPoint.point.direction}, 1
+	case startPoint.point.direction == E && turn == LEFT:
+		return Point{startPoint.point.X, startPoint.point.Y, N}, 1000
+	case startPoint.point.direction == E && turn == RIGHT:
+		return Point{startPoint.point.X, startPoint.point.Y, S}, 1000
 
-	case currentDirection == "W" && turn == "FORWARD":
-		return Point{startPoint.point.X - 1, startPoint.point.Y, currentDirection}, 1
+	case startPoint.point.direction == W && turn == FORWARD:
+		return Point{startPoint.point.X - 1, startPoint.point.Y, startPoint.point.direction}, 1
 
-	case currentDirection == "W" && turn == "Left":
-		return Point{startPoint.point.X, startPoint.point.Y, "S"}, 1000
-	case currentDirection == "W" && turn == "Right":
-		return Point{startPoint.point.X, startPoint.point.Y, "N"}, 1000
+	case startPoint.point.direction == W && turn == LEFT:
+		return Point{startPoint.point.X, startPoint.point.Y, S}, 1000
+	case startPoint.point.direction == W && turn == RIGHT:
+		return Point{startPoint.point.X, startPoint.point.Y, N}, 1000
 	}
-
 	panic("This should not happen")
-	return nextPoint, 0
+
 }
