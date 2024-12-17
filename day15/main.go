@@ -50,9 +50,8 @@ func part2(strings []string) int {
 			currentPoint = currentPoint.Add(move)
 		}
 
-		//printGrid(grid)
-
 	}
+	printGrid(grid)
 	return sumBoxes(grid)
 }
 
