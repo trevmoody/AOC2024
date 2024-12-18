@@ -11,7 +11,7 @@ import (
 
 type Item struct {
 	point    image.Point
-	priority int
+	distance int
 	index    int
 }
 
@@ -20,7 +20,7 @@ type PriorityQueue []*Item
 func (pq PriorityQueue) Len() int { return len(pq) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	return pq[i].priority < pq[j].priority
+	return pq[i].distance < pq[j].distance
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
@@ -102,7 +102,7 @@ func part2(inputs []string, length int, take int) string {
 func dijkstra(grid [][]string, start, end image.Point) int {
 	pq := make(PriorityQueue, 0)
 	heap.Init(&pq)
-	heap.Push(&pq, &Item{point: start, priority: 0})
+	heap.Push(&pq, &Item{point: start, distance: 0})
 
 	distances := map[image.Point]int{start: 0}
 	visited := map[image.Point]bool{}
@@ -110,7 +110,7 @@ func dijkstra(grid [][]string, start, end image.Point) int {
 	for pq.Len() > 0 {
 		current := heap.Pop(&pq).(*Item)
 		if current.point == end {
-			return current.priority
+			return current.distance
 		}
 		if visited[current.point] {
 			continue
@@ -125,10 +125,10 @@ func dijkstra(grid [][]string, start, end image.Point) int {
 			if grid[nextPoint.Y][nextPoint.X] == "#" {
 				continue
 			}
-			newDist := current.priority + 1
+			newDist := current.distance + 1
 			if oldDist, ok := distances[nextPoint]; !ok || newDist < oldDist {
 				distances[nextPoint] = newDist
-				heap.Push(&pq, &Item{point: nextPoint, priority: newDist})
+				heap.Push(&pq, &Item{point: nextPoint, distance: newDist})
 			}
 		}
 	}
